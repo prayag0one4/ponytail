@@ -24,7 +24,7 @@ SKILLS_DIR = ROOT / "skills"
 PONYTAIL_SKILL = SKILLS_DIR / "ponytail" / "SKILL.md"
 REVIEW_SKILL = SKILLS_DIR / "ponytail-review" / "SKILL.md"
 
-_current_mode = None
+_session_modes = {}
 
 
 def _normalize_runtime_mode(mode: str | None) -> str | None:
@@ -77,7 +77,7 @@ def _filter_skill_body_for_mode(body: str, mode: str) -> str:
             if label_mode and label_mode != effective:
                 continue
 
-        example_label = re.match(r"^-\s*([^:]+):\s*", line)
+        example_label = re.match(r"^-\s*([^:]+):\s*\"", line)
         if example_label:
             label_mode = _normalize_runtime_mode(example_label.group(1))
             if label_mode and label_mode != effective:
@@ -123,7 +123,7 @@ def build_injected_context(mode: str | None = None) -> str:
 
 
 def _pre_llm_call(session_id: str = "", **_: Any) -> dict[str, str] | None:
-    mode = _current_mode or _default_mode()
+    mode = _session_modes.get(session_id) or _default_mode()
     context = build_injected_context(mode)
     return {"context": context} if context else None
 
@@ -164,21 +164,20 @@ def rewrite_gateway_command(event: Any = None, gateway: Any = None, **_: Any) ->
     return {"action": "rewrite", "text": _skill_prompt(command, rest)}
 
 
-def _handle_mode_command(raw_args: str) -> str:
-    global _current_mode
+def _handle_mode_command(raw_args: str, session_id: str = "", **_: Any) -> str:
     arg = (raw_args or "").strip().lower()
     if not arg:
-        mode = _current_mode or _default_mode()
+        mode = _session_modes.get(session_id) or _default_mode()
         return f"Ponytail mode: {mode}. Use `/ponytail lite|full|ultra|off`."
     mode = _normalize_runtime_mode(arg)
     if not mode:
         return "Usage: /ponytail [lite|full|ultra|off]"
-    _current_mode = mode
+    _session_modes[session_id] = mode
     return f"Ponytail mode set to {mode}."
 
 
 def _make_skill_command_handler(ctx: Any, command: str) -> Callable[[str], str]:
-    def handler(raw_args: str) -> str:
+    def handler(raw_args: str, **kwargs: Any) -> str:
         prompt = _skill_prompt(command, raw_args or "")
         injected = False
         try:

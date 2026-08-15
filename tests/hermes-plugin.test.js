@@ -181,7 +181,7 @@ class Ctx:
         self.commands[name] = handler
 ctx = Ctx()
 mod.register(ctx)
-message = ctx.commands['ponytail']('ultra')
+message = ctx.commands['ponytail']('ultra', session_id='s1')
 injected = ctx.hooks['pre_llm_call'](session_id='s1', user_message='build it', conversation_history=[], is_first_turn=False, model='m', platform='cli')
 print(json.dumps({'message': message, 'context': injected['context']}))
 `);
